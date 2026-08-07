@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo, Fragment } from 'react';
+import { useState, useCallback, useMemo, Fragment, useEffect } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
   Image as ImageIcon,
@@ -24,6 +24,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/lib/hooks/use-i18n';
+import { resolveASRProviderName } from '@/lib/audio/provider-display';
 import { useSettingsStore } from '@/lib/store/settings';
 import { IMAGE_PROVIDERS } from '@/lib/media/image-providers';
 import { VIDEO_PROVIDERS } from '@/lib/media/video-providers';
@@ -45,6 +46,7 @@ const IMAGE_PROVIDER_ICONS: Record<string, string> = {
   'qwen-image': '/logos/bailian.svg',
   'nano-banana': '/logos/gemini.svg',
   'grok-image': '/logos/grok.svg',
+  'comfyui-image': '/logos/comfyui.svg',
 };
 const VIDEO_PROVIDER_ICONS: Record<string, string> = {
   seedance: '/logos/doubao.svg',
@@ -62,6 +64,17 @@ const TABS: Array<{ id: TabId; icon: LucideIcon; label: string }> = [
   { id: 'tts', icon: Volume2, label: 'TTS' },
   { id: 'asr', icon: Mic, label: 'ASR' },
 ];
+
+function providerModels<T extends { id: string; name: string }>(
+  builtInModels: T[],
+  config?: { customModels?: T[]; replaceBuiltInModels?: boolean },
+): T[] {
+  const customModels = config?.customModels || [];
+  if (config?.replaceBuiltInModels && customModels.length > 0) {
+    return customModels;
+  }
+  return [...builtInModels, ...customModels];
+}
 
 export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
   const { t } = useI18n();
@@ -96,6 +109,14 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
   const setASRProvider = useSettingsStore((s) => s.setASRProvider);
   const setASRLanguage = useSettingsStore((s) => s.setASRLanguage);
 
+  const [comfyWorkflows, setComfyWorkflows] = useState<Array<{ id: string; name: string }>>([]);
+  useEffect(() => {
+    fetch('/api/comfyui-workflows')
+      .then((r) => r.json())
+      .then((d) => setComfyWorkflows(d.workflows || []))
+      .catch(() => setComfyWorkflows([]));
+  }, []);
+
   const enabledMap: Record<TabId, boolean> = {
     image: imageGenerationEnabled,
     video: videoGenerationEnabled,
@@ -124,17 +145,25 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
     () =>
       Object.values(IMAGE_PROVIDERS)
         .filter((p) => cfgOk(imageProvidersConfig, p.id, p.requiresApiKey))
-        .map((p) => ({
-          groupId: p.id,
-          groupName: p.name,
-          groupIcon: IMAGE_PROVIDER_ICONS[p.id],
-          available: true,
-          items: [...p.models, ...(imageProvidersConfig[p.id]?.customModels || [])].map((m) => ({
-            id: m.id,
-            name: m.name,
-          })),
-        })),
-    [cfgOk, imageProvidersConfig],
+        .map((p) => {
+          const items =
+            p.id === 'comfyui-image'
+              ? comfyWorkflows
+              : providerModels(p.models, imageProvidersConfig[p.id]);
+
+          return {
+            groupId: p.id,
+            groupName: p.name,
+            groupIcon: IMAGE_PROVIDER_ICONS[p.id],
+            available: true,
+            // Map to a consistent format here
+            items: items.map((m) => ({
+              id: m.id,
+              name: m.name,
+            })),
+          };
+        }),
+    [cfgOk, imageProvidersConfig, comfyWorkflows],
   );
 
   const videoGroups = useMemo(
@@ -146,7 +175,7 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
           groupName: p.name,
           groupIcon: VIDEO_PROVIDER_ICONS[p.id],
           available: true,
-          items: [...p.models, ...(videoProvidersConfig[p.id]?.customModels || [])].map((m) => ({
+          items: providerModels(p.models, videoProvidersConfig[p.id]).map((m) => ({
             id: m.id,
             name: m.name,
           })),
@@ -163,7 +192,9 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
       if (!cfgOk(asrProvidersConfig, p.id, p.requiresApiKey)) continue;
       groups.push({
         groupId: p.id,
-        groupName: p.name,
+        // `p.name` is the registry label, which is Chinese for several
+        // providers; resolve it the way the settings dialog does.
+        groupName: resolveASRProviderName(p.id, t, p.name),
         groupIcon: p.icon,
         available: true,
         items: getASRSupportedLanguages(p.id).map((l) => ({
@@ -188,7 +219,7 @@ export function MediaPopover({ onSettingsOpen }: MediaPopoverProps) {
     }
 
     return groups;
-  }, [asrProvidersConfig, cfgOk]);
+  }, [asrProvidersConfig, cfgOk, t]);
 
   // Auto-select first enabled tab on open
   const handleOpenChange = (isOpen: boolean) => {

@@ -51,6 +51,13 @@ describe('POST /api/web-search', () => {
     delete process.env.TAVILY_BASE_URL;
     delete process.env.BOCHA_API_KEY;
     delete process.env.BOCHA_BASE_URL;
+    delete process.env.BRAVE_API_KEY;
+    delete process.env.BRAVE_BASE_URL;
+    delete process.env.BAIDU_API_KEY;
+    delete process.env.BAIDU_BASE_URL;
+    delete process.env.WEB_SEARCH_MINIMAX_API_KEY;
+    delete process.env.WEB_SEARCH_MINIMAX_BASE_URL;
+    delete process.env.SEARXNG_BASE_URL;
     mocks.searchWeb.mockReset();
     mocks.formatSearchResultsAsContext.mockClear();
     mocks.resolveModelFromRequest.mockReset();
@@ -63,12 +70,13 @@ describe('POST /api/web-search', () => {
     });
   });
 
-  it('rejects client-controlled base URLs outside the provider allowlist', async () => {
-    vi.stubEnv('BOCHA_API_KEY', 'bocha-server-key');
-
+  it('rejects client-controlled base URLs outside the provider allowlist (unmanaged provider)', async () => {
+    // No server config ⇒ unmanaged ⇒ the client base URL is actually used, so it
+    // must be validated against the allowlist.
     const res = await postWebSearch({
       query: 'test query',
       providerId: 'bocha',
+      apiKey: 'bocha-client-key',
       baseUrl: 'http://127.0.0.1:3000/internal',
     });
     const json = await res.json();
@@ -79,6 +87,27 @@ describe('POST /api/web-search', () => {
       errorCode: 'INVALID_REQUEST',
     });
     expect(mocks.searchWeb).not.toHaveBeenCalled();
+  });
+
+  it('ignores a client base URL for a managed (server-configured) provider', async () => {
+    vi.stubEnv('BOCHA_API_KEY', 'bocha-server-key');
+
+    // A managed provider is admin-owned: the client base URL (even an invalid
+    // one) is dropped rather than rejected, and the server config is used.
+    const res = await postWebSearch({
+      query: 'test query',
+      providerId: 'bocha',
+      apiKey: 'bocha-client-key',
+      baseUrl: 'http://127.0.0.1:3000/internal',
+    });
+
+    expect(res.status).toBe(200);
+    expect(mocks.searchWeb).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerId: 'bocha',
+        apiKey: 'bocha-server-key',
+      }),
+    );
   });
 
   it('uses server-configured base URL when no client base URL is supplied', async () => {
@@ -99,4 +128,158 @@ describe('POST /api/web-search', () => {
       }),
     );
   });
+
+  it('runs Brave Search without an API key', async () => {
+    const res = await postWebSearch({
+      query: 'test query',
+      providerId: 'brave',
+    });
+
+    expect(res.status).toBe(200);
+    expect(mocks.searchWeb).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerId: 'brave',
+        apiKey: '',
+      }),
+    );
+  });
+
+  it('passes Baidu sub-source toggles through to the dispatcher', async () => {
+    vi.stubEnv('BAIDU_API_KEY', 'baidu-server-key');
+
+    const res = await postWebSearch({
+      query: 'test query',
+      providerId: 'baidu',
+      baiduSubSources: {
+        webSearch: false,
+        baike: true,
+        scholar: false,
+      },
+    });
+
+    expect(res.status).toBe(200);
+    expect(mocks.searchWeb).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerId: 'baidu',
+        apiKey: 'baidu-server-key',
+        baiduSubSources: {
+          webSearch: false,
+          baike: true,
+          scholar: false,
+        },
+      }),
+    );
+  });
+
+  it('routes MiniMax web search through the dispatcher with server config', async () => {
+    vi.stubEnv('WEB_SEARCH_MINIMAX_API_KEY', 'minimax-server-key');
+    vi.stubEnv('WEB_SEARCH_MINIMAX_BASE_URL', 'https://api.minimaxi.com');
+
+    const res = await postWebSearch({
+      query: 'test query',
+      providerId: 'minimax',
+    });
+
+    expect(res.status).toBe(200);
+    expect(mocks.searchWeb).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerId: 'minimax',
+        apiKey: 'minimax-server-key',
+        baseUrl: 'https://api.minimaxi.com',
+      }),
+    );
+  });
+
+  it('prefers server-configured SearXNG over client-selected Brave', async () => {
+    vi.stubEnv('SEARXNG_BASE_URL', 'http://192.168.161.100:6060');
+
+    const res = await postWebSearch({
+      query: 'test query',
+      providerId: 'brave',
+    });
+
+    expect(res.status).toBe(200);
+    expect(mocks.searchWeb).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerId: 'searxng',
+        baseUrl: 'http://192.168.161.100:6060',
+      }),
+    );
+  });
+
+  it('routes SearXNG web search through the dispatcher with server base URL', async () => {
+    vi.stubEnv('SEARXNG_BASE_URL', 'http://192.168.161.100:6060');
+
+    const res = await postWebSearch({
+      query: 'test query',
+      providerId: 'searxng',
+    });
+
+    expect(res.status).toBe(200);
+    expect(mocks.searchWeb).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerId: 'searxng',
+        baseUrl: 'http://192.168.161.100:6060',
+      }),
+    );
+  });
+
+  it('rejects SearXNG requests without a configured base URL', async () => {
+    const res = await postWebSearch({
+      query: 'test query',
+      providerId: 'searxng',
+    });
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json).toMatchObject({
+      success: false,
+      errorCode: 'MISSING_REQUIRED_FIELD',
+    });
+    expect(json.error).toContain('SEARXNG_BASE_URL');
+    expect(json.error).not.toContain('Settings');
+    expect(mocks.searchWeb).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'http://127.0.0.1:6060',
+    'http://localhost:6060',
+    'http://169.254.169.254',
+    'http://192.168.161.100:6060',
+  ])('ignores client-supplied SearXNG base URLs without server config (%s)', async (baseUrl) => {
+    const res = await postWebSearch({
+      query: 'test query',
+      providerId: 'searxng',
+      baseUrl,
+    });
+
+    expect(res.status).toBe(400);
+    expect(mocks.searchWeb).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'http://127.0.0.1:6060',
+    'http://localhost:6060',
+    'http://169.254.169.254',
+    'http://10.0.0.5:6060',
+  ])(
+    'uses operator-configured SearXNG URL and ignores client-supplied base URL (%s)',
+    async (clientBaseUrl) => {
+      vi.stubEnv('SEARXNG_BASE_URL', 'http://192.168.161.100:6060');
+
+      const res = await postWebSearch({
+        query: 'test query',
+        providerId: 'searxng',
+        baseUrl: clientBaseUrl,
+      });
+
+      expect(res.status).toBe(200);
+      expect(mocks.searchWeb).toHaveBeenCalledWith(
+        expect.objectContaining({
+          providerId: 'searxng',
+          baseUrl: 'http://192.168.161.100:6060',
+        }),
+      );
+    },
+  );
 });

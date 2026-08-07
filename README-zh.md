@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="https://jcst.ict.ac.cn/en/article/doi/10.1007/s11390-025-6000-0"><img src="https://img.shields.io/badge/Paper-JCST'26-blue?style=flat-square" alt="Paper"/></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0-blue.svg?style=flat-square" alt="License: AGPL-3.0"/></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg?style=flat-square" alt="License: MIT"/></a>
   <a href="https://open.maic.chat/"><img src="https://img.shields.io/badge/Demo-Live-brightgreen?style=flat-square" alt="Live Demo"/></a>
   <a href="https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FTHU-MAIC%2FOpenMAIC&envDescription=Configure%20at%20least%20one%20LLM%20provider%20API%20key%20(e.g.%20OPENAI_API_KEY%2C%20ANTHROPIC_API_KEY).%20All%20providers%20are%20optional.&envLink=https%3A%2F%2Fgithub.com%2FTHU-MAIC%2FOpenMAIC%2Fblob%2Fmain%2F.env.example&project-name=openmaic&framework=nextjs"><img src="https://vercel.com/button" alt="Deploy with Vercel" height="20"/></a>
   <a href="#-openclaw-集成"><img src="https://img.shields.io/badge/OpenClaw-集成-F4511E?style=flat-square" alt="OpenClaw 集成"/></a>
@@ -33,12 +33,15 @@
 <p align="center">
   <a href="./README.md">English</a> | <a href="./README-zh.md">简体中文</a>
   <br/>
-  <a href="https://open.maic.chat/">在线体验</a> · <a href="#-快速开始">快速开始</a> · <a href="#lemonade-local-ai">Lemonade</a> · <a href="#-功能特性">功能特性</a> · <a href="#-使用场景">使用场景</a> · <a href="#-openclaw-集成">OpenClaw</a>
+  <a href="https://open.maic.chat/">在线体验</a> · <a href="#-快速开始">快速开始</a> · <a href="#lemonade-local-ai">Lemonade</a> · <a href="#funasr-local-asr">FunASR</a> · <a href="#-功能特性">功能特性</a> · <a href="#-使用场景">使用场景</a> · <a href="#-openclaw-集成">OpenClaw</a>
 </p>
 
 
 ## 🗞️ 动态
 
+- **2026-07-21** — [v0.3.1 发布！](https://github.com/THU-MAIC/OpenMAIC/releases/tag/v0.3.1) 一键导出 MP4 课程视频；服务端课堂运行时存储（含 Postgres 参考服务）；编辑器直接操作幻灯片元素（拖拽、缩放、旋转、框选多选）；“Edit with AI”升级（校验式 JSON Patch 编辑、多会话历史）；文档解析扩展（多格式上传、音视频抽取、阿里 DocMind、MinerU）；新增 Azure OpenAI / SearXNG / ComfyUI 与 GPT-5.6 系列模型；动作级播放导航；SSRF 安全加固。查看[更新日志](CHANGELOG.md)。
+- **2026-06-28** — [v0.3.0 发布！](https://github.com/THU-MAIC/OpenMAIC/releases/tag/v0.3.0) 项目式学习（PBL）v2 与课堂界面；“Edit with AI”专业模式编辑智能体；`@openmaic/*` SDK 系列（DSL/渲染器/导入器）发布至 npm；可选的分阶段模型路由；新增 GLM-5.2 / Kimi K2.7 Code / Qwen3.7 Plus·Max 等模型；职业学习任务引擎；新增韩语（ko-KR）；并将开源协议由 AGPL-3.0 调整为 MIT。查看[更新日志](CHANGELOG.md)。
+- **2026-06-02** — [v0.2.2 发布！](https://github.com/THU-MAIC/OpenMAIC/releases/tag/v0.2.2) MAIC Editor（v0）专业模式，可轻量编辑生成的幻灯片；生成前可编辑大纲；交互课堂离线导出；新增 Brave/百度/博查/MiniMax 搜索与 Azure STT；新增 Claude Opus 4.8 / MiniMax M3 / Gemini 3.5 Flash 等模型；新增繁体中文（zh-TW）与巴西葡萄牙语（pt-BR）。查看[更新日志](CHANGELOG.md)。
 - **2026-04-26** — [v0.2.1 发布！](https://github.com/THU-MAIC/OpenMAIC/releases/tag/v0.2.1) 接入 [VoxCPM2](https://github.com/OpenBMB/VoxCPM) TTS，支持音色克隆与自动生成音色；新增按模型思考配置；新增课程完成页与作答状态持久化；新增 DeepSeek-V4 / GPT-5.5 / GPT-Image-2 / 小米 MiMo / Hy3 等最新发布的模型。查看[更新日志](CHANGELOG.md)。
 - **2026-04-20** — **v0.2.0 发布！** 深度交互模式 — 3D 可视化、模拟实验、游戏、思维导图、在线编程，动手学习新体验。详见[功能特性](#-功能特性)。
 - **2026-04-14** — [v0.1.1 发布！](https://github.com/THU-MAIC/OpenMAIC/releases/tag/v0.1.1) 自动语言推断、ACCESS_CODE 站点认证、课堂 ZIP 导入导出、自定义 TTS/ASR、Ollama 支持等。查看[更新日志](CHANGELOG.md)。
@@ -103,12 +106,16 @@ cp .env.example .env.local
 
 ```env
 OPENAI_API_KEY=sk-...
+AZURE_OPENAI_API_KEY=...
+AZURE_OPENAI_BASE_URL=https://YOUR-RESOURCE.openai.azure.com/openai
+AZURE_OPENAI_MODELS=YOUR-DEPLOYMENT-NAME
 ANTHROPIC_API_KEY=sk-ant-...
 GOOGLE_API_KEY=...
 GROK_API_KEY=xai-...
 OPENROUTER_API_KEY=sk-or-...
 TENCENT_API_KEY=sk-...
 XIAOMI_API_KEY=...
+# 或使用 AWS 凭证和 BEDROCK_REGION 配置 Amazon Bedrock。
 ```
 
 也可以通过 `server-providers.yml` 配置服务商：
@@ -117,11 +124,30 @@ XIAOMI_API_KEY=...
 providers:
   openai:
     apiKey: sk-...
+  azure:
+    apiKey: ...
+    baseUrl: https://YOUR-RESOURCE.openai.azure.com/openai
+    models:
+      - YOUR-DEPLOYMENT-NAME
   anthropic:
     apiKey: sk-ant-...
+  bedrock:
+    models:
+      - us.anthropic.claude-sonnet-5
+      - us.anthropic.claude-opus-4-8
 ```
 
-支持的服务商：**OpenAI**、**Anthropic**、**Google Gemini**、**DeepSeek**、**通义千问 Qwen**、**Kimi**、**MiniMax**、**Grok (xAI)**、**OpenRouter**、**豆包**、**腾讯混元 / TokenHub**、**小米 MiMo**、**智谱 GLM**、**Ollama**（本地）、**Lemonade**（本地 LLM / 图像 / TTS / ASR）以及任何兼容 OpenAI API 的服务。
+支持的服务商：**OpenAI**、**Azure OpenAI**、**Anthropic**、**Amazon Bedrock**、**Google Gemini**、**DeepSeek**、**通义千问 Qwen**、**Kimi**、**MiniMax**、**Grok (xAI)**、**OpenRouter**、**豆包**、**腾讯混元 / TokenHub**、**小米 MiMo**、**智谱 GLM**、**Ollama**（本地）、**Lemonade**（本地 LLM / 图像 / TTS / ASR）、**FunASR**（本地 ASR）以及任何兼容 OpenAI API 的服务。
+
+Amazon Bedrock 快速示例：
+
+```env
+BEDROCK_REGION=us-east-1
+BEDROCK_MODELS=us.anthropic.claude-sonnet-5,us.anthropic.claude-opus-4-8
+DEFAULT_MODEL=bedrock:us.anthropic.claude-sonnet-5
+```
+
+Bedrock 使用 AWS 环境凭证或 AWS SDK 凭证链。临时凭证可设置 `AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY` 和 `AWS_SESSION_TOKEN`，也可以使用运行环境可用的 AWS profile / role。
 
 <a id="lemonade-local-ai"></a>
 
@@ -137,6 +163,28 @@ TTS_LEMONADE_BASE_URL=http://localhost:13305/v1
 ASR_LEMONADE_BASE_URL=http://localhost:13305/v1
 IMAGE_LEMONADE_BASE_URL=http://localhost:13305/v1
 ```
+
+<a id="funasr-local-asr"></a>
+
+### 可选：FunASR（本地语音识别）
+
+OpenMAIC 可以通过 FunASR 的 OpenAI 兼容服务完成本地转写。内置 provider 支持 SenseVoiceSmall、Paraformer 和 Fun-ASR-Nano，无需 API Key。
+
+```bash
+python -m pip install torch torchaudio
+python -m pip install "funasr==1.4.0" fastapi uvicorn python-multipart
+# NVIDIA GPU 上运行 Fun-ASR-Nano 时再安装 vLLM
+python -m pip install vllm
+funasr-server --device cuda --model fun-asr-nano
+```
+
+将 OpenMAIC 指向该服务：
+
+```env
+ASR_FUNASR_BASE_URL=http://localhost:8000/v1
+```
+
+纯 CPU 环境可运行 `funasr-server --device cpu --model sensevoice`。生产部署方式参见 [FunASR 部署指南](https://github.com/modelscope/FunASR#deploy)。
 
 OpenAI 快速示例：
 
@@ -164,6 +212,16 @@ IMAGE_OPENAI_BASE_URL=https://api.openai.com/v1
 VIDEO_MINIMAX_API_KEY=...
 VIDEO_MINIMAX_BASE_URL=https://api.minimaxi.com
 ```
+
+小米 MiMo Token Plan 快速示例：
+
+```env
+MIMO_API_KEY=tp-...
+MIMO_BASE_URL=https://token-plan-cn.xiaomimimo.com/v1
+DEFAULT_MODEL=xiaomi:mimo-v2.5-pro
+```
+
+新加坡或欧洲 Token Plan 集群可分别使用 `https://token-plan-sgp.xiaomimimo.com/v1`、`https://token-plan-ams.xiaomimimo.com/v1`。
 
 智谱 GLM 快速示例：
 
@@ -537,12 +595,14 @@ cp -R /path/to/OpenMAIC/skills/openmaic ~/.openclaw/skills/openmaic
 | **交互式 HTML** | 自包含的网页，包含交互式模拟实验 |
 | **课堂 ZIP** | 完整课堂导出（课程结构 + 媒体文件），可备份或分享 |
 
+**离线 / 内网课堂：** 导出课堂（`.maic.zip`）或资源包时，OpenMAIC 会把互动场景引用的外部资源（KaTeX、Three.js 含 `three/addons`、Tailwind CDN、Google Fonts、图片）以 `data:` URI 形式内联进导出的 HTML。导出的课程在导入到内网/离线实例后即可完全离线播放，播放时不再访问任何公网 CDN。导出时无法抓取的资源（如开启了 CORS 限制的图床）会被记录并保留为原始 URL。本功能上线*之前*导出的课堂仍引用 CDN，需要重新导出才能离线播放。
+
 ### 更多功能
 
 - **语音合成（TTS）** — 多种语音服务商，支持自定义音色
 - **语音识别** — 通过麦克风与 AI 老师对话
 - **网络搜索** — 智能体在课堂中搜索网络获取最新信息
-- **国际化** — 界面支持中文、英文、日文和俄文
+- **国际化** — 界面支持 7 种语言：简体中文、繁体中文、英文、日文、俄文、阿拉伯文、葡萄牙文（巴西）
 - **暗色模式** — 深夜学习更护眼
 
 ---
@@ -617,7 +677,7 @@ OpenMAIC/
 │   ├── media/                  #   图片 & 视频生成服务商
 │   ├── export/                 #   PPTX & HTML 导出
 │   ├── hooks/                  #   React 自定义 Hooks（55+）
-│   ├── i18n/                   #   国际化（zh-CN, en-US）
+│   ├── i18n/                   #   国际化（zh-CN, zh-TW, en-US, ja-JP, ru-RU, ar-SA, pt-BR）
 │   └── ...                     #   prosemirror, storage, pdf, web-search, utils
 │
 ├── components/                 # React UI 组件
@@ -665,7 +725,7 @@ OpenMAIC/
 
 ## 💼 商业合作
 
-本项目基于 AGPL-3.0 协议开源。商业授权合作请联系：**thu_maic@tsinghua.edu.cn**
+本项目基于 MIT 协议开源，可免费商用。商业合作或共建请联系：**thu_maic@mail.tsinghua.edu.cn**
 
 ---
 
@@ -698,4 +758,13 @@ OpenMAIC/
 
 ## 📄 许可证
 
-本项目基于 [GNU Affero General Public License v3.0](LICENSE) 开源。
+本项目基于 [MIT License](LICENSE) 开源。
+
+### 第三方组件
+
+仓库内置的以下工作区子包**不**受根目录 MIT 许可证覆盖，各自保留原有协议：
+
+- `packages/mathml2omml` —— [LGPL-3.0-or-later](packages/mathml2omml/LICENSE)
+- `packages/pptxgenjs` —— [MIT](packages/pptxgenjs/package.json)（第三方）
+
+整体再分发本仓库时，上述子包内文件适用其各自的协议。

@@ -74,12 +74,19 @@ function getFirstIPv6Hextet(ip: string): number | null {
 
 /** Expand an IPv6 address into 8 numeric hextets. Returns null for invalid input. */
 function expandIPv6(ip: string): number[] | null {
-  const normalized = normalizeAddress(ip);
+  let normalized = normalizeAddress(ip);
   if (!normalized.includes(':')) return null;
 
-  // Skip IPv4-suffix forms (handled separately by extractMappedIPv4)
   const lastPart = normalized.split(':').pop() || '';
-  if (lastPart.includes('.')) return null;
+  if (lastPart.includes('.')) {
+    const dottedIPv4 = parseIPv4(lastPart);
+    if (!dottedIPv4) return null;
+
+    const [first, second, third, fourth] = dottedIPv4;
+    const high = ((first << 8) | second).toString(16);
+    const low = ((third << 8) | fourth).toString(16);
+    normalized = `${normalized.slice(0, -lastPart.length)}${high}:${low}`;
+  }
 
   const sides = normalized.split('::');
   if (sides.length > 2) return null;
@@ -89,7 +96,7 @@ function expandIPv6(ip: string): number[] | null {
     const left = sides[0] ? sides[0].split(':') : [];
     const right = sides[1] ? sides[1].split(':') : [];
     const missing = 8 - left.length - right.length;
-    if (missing < 0) return null;
+    if (missing <= 0) return null;
     parts = [...left, ...Array(missing).fill('0'), ...right];
   } else {
     parts = normalized.split(':');
@@ -159,8 +166,18 @@ export function isPrivateIP(ip: string): boolean {
     }
   }
 
+  // ISATAP interface ID: 0000:5efe:<IPv4> or 0200:5efe:<IPv4>
+  const hextets = expandIPv6(normalized);
+  if (hextets && (hextets[4] === 0x0000 || hextets[4] === 0x0200) && hextets[5] === 0x5efe) {
+    const embedded = `${hextets[6] >> 8}.${hextets[6] & 0xff}.${hextets[7] >> 8}.${hextets[7] & 0xff}`;
+    if (isPrivateIP(embedded)) return true;
+  }
+
   return false;
 }
+
+const LOCAL_NETWORK_BLOCK_MESSAGE =
+  'Local/private network URLs are not allowed. If this is a self-hosted deployment or internal gateway (including split-horizon DNS), set ALLOW_LOCAL_NETWORKS=true to allow local network targets.';
 
 /**
  * Validate a URL against SSRF attacks.
@@ -192,7 +209,7 @@ export async function validateUrlForSSRF(url: string): Promise<string | null> {
     hostname === '::1' ||
     isPrivateIP(hostname)
   ) {
-    return 'Local/private network URLs are not allowed';
+    return LOCAL_NETWORK_BLOCK_MESSAGE;
   }
 
   if (isIP(hostname)) {
@@ -211,7 +228,7 @@ export async function validateUrlForSSRF(url: string): Promise<string | null> {
   }
 
   if (resolvedAddresses.some(({ address }) => isPrivateIP(address))) {
-    return 'Local/private network URLs are not allowed';
+    return LOCAL_NETWORK_BLOCK_MESSAGE;
   }
 
   return null;

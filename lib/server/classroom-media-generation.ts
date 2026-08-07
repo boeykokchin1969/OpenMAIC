@@ -15,7 +15,6 @@ import { generateTTS } from '@/lib/audio/tts-providers';
 import { DEFAULT_TTS_VOICES, DEFAULT_TTS_MODELS, TTS_PROVIDERS } from '@/lib/audio/constants';
 import { IMAGE_PROVIDERS } from '@/lib/media/image-providers';
 import { VIDEO_PROVIDERS } from '@/lib/media/video-providers';
-import { isMediaPlaceholder } from '@/lib/store/media-generation';
 import {
   getServerImageProviders,
   getServerVideoProviders,
@@ -34,6 +33,7 @@ import type { ImageProviderId } from '@/lib/media/types';
 import type { VideoProviderId } from '@/lib/media/types';
 import type { TTSProviderId } from '@/lib/audio/types';
 import { splitLongSpeechActions } from '@/lib/audio/tts-utils';
+import { isGeneratedMediaPlaceholder } from '@/lib/media/media-ref';
 import { VOXCPM_AUTO_VOICE_ID, VOXCPM_TTS_PROVIDER_ID } from '@/lib/audio/voxcpm';
 
 const log = createLogger('ClassroomMedia');
@@ -192,7 +192,7 @@ export function replaceMediaPlaceholders(scenes: Scene[], mediaMap: Record<strin
         el.type === 'video' &&
         typeof el.mediaRef === 'string' &&
         mediaMap[el.mediaRef] &&
-        (!el.src || isMediaPlaceholder(el.src))
+        (!el.src || /^gen_vid_[\w-]+$/i.test(el.src))
       ) {
         el.src = mediaMap[el.mediaRef];
         continue;
@@ -200,7 +200,7 @@ export function replaceMediaPlaceholders(scenes: Scene[], mediaMap: Record<strin
       if (
         (el.type === 'image' || el.type === 'video') &&
         typeof el.src === 'string' &&
-        isMediaPlaceholder(el.src) &&
+        isGeneratedMediaPlaceholder(el.src) &&
         mediaMap[el.src]
       ) {
         el.src = mediaMap[el.src];
@@ -221,10 +221,11 @@ export async function generateTTSForClassroom(
   const audioDir = path.join(CLASSROOMS_DIR, classroomId, 'audio');
   await ensureDir(audioDir);
 
-  // Resolve TTS provider (exclude browser-native-tts)
-  const ttsProviderIds = Object.keys(getServerTTSProviders()).filter(
-    (id) => id !== 'browser-native-tts',
-  );
+  // Resolve TTS provider (exclude browser-native-tts and operator force-disabled
+  // providers — server precedence, #665).
+  const ttsProviderIds = Object.entries(getServerTTSProviders())
+    .filter(([id, info]) => id !== 'browser-native-tts' && !info.disabled)
+    .map(([id]) => id);
   if (ttsProviderIds.length === 0) {
     log.warn('No server TTS provider configured, skipping TTS generation');
     return;
@@ -258,7 +259,8 @@ export async function generateTTSForClassroom(
     for (const action of scene.actions) {
       if (action.type !== 'speech' || !(action as SpeechAction).text) continue;
       const speechAction = action as SpeechAction;
-      // Include scene order in audioId to prevent collision across scenes
+      // Server transport keeps derived ids and audioUrl playback priority;
+      // browser generation allocates pool ids. Unifying them is Part 2 step (c).
       const audioId = `tts_s${sceneOrder}_${action.id}`;
 
       try {
